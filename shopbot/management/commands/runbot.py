@@ -1,14 +1,23 @@
 from aiogram import Bot, Dispatcher
-from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery
 from django.core.management import BaseCommand
-from shopbot.management.commands.bot import user_handlers
 
 import conf.settings as settings
+from shopbot.management.commands.bot import user_handlers
+from environs import Env
+import logging
 
-TG_BOT_API: str = settings.TG_BOT_API
 
-bot: Bot = Bot(token=TG_BOT_API, parse_mode='HTML')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(filename)s:%(lineno)d - %(levelname)-8s - %(asctime)s - %(funcName)s - %(name)s - %(message)s'
+    )
+
+logger = logging.getLogger(__name__)
+
+env: Env = Env()
+env.read_env()
+
+bot: Bot = Bot(token=env('TG_BOT_API'), parse_mode='HTML')
 dp: Dispatcher = Dispatcher()
 
 dp.include_router(user_handlers.router)
@@ -16,4 +25,5 @@ dp.include_router(user_handlers.router)
 
 class Command(BaseCommand):
     def handle(self, *args, **options):
+        logger.info('Bot started')
         dp.run_polling(bot)
