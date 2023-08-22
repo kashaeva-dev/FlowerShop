@@ -39,7 +39,7 @@ class Client(User):
         verbose_name_plural = 'Клиенты'
 
     def __str__(self):
-        return f'{self.chat_id}: {self.first_name}'
+        return f'{self.telegram_id}: {self.first_name}'
 
 
 class Staff(User):
