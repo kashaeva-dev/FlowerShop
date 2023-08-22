@@ -13,6 +13,7 @@ from shopbot.models import (
     Greenery,
     FlowerComposition,
     GreeneryComposition,
+    Genus,
 )
 
 
@@ -28,3 +29,4 @@ admin.site.register(Flower)
 admin.site.register(Greenery)
 admin.site.register(FlowerComposition)
 admin.site.register(GreeneryComposition)
+admin.site.register(Genus)

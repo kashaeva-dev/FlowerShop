@@ -94,10 +94,21 @@ class Gamma(models.Model):
         return self.name
 
 
+class Genus(models.Model):
+    name = models.CharField(max_length=40, verbose_name='Род растения')
+
+    class Meta:
+        verbose_name = 'Род растения'
+        verbose_name_plural = 'Роды растений'
+
+    def __str__(self):
+        return self.name
+
+
 class Flower(models.Model):
-    genus = models.CharField(max_length=40, verbose_name='Род растения')
+    genus = models.ForeignKey(Genus, on_delete=models.PROTECT, verbose_name='Род растения')
     name = models.CharField(max_length=40, verbose_name='Название цветка')
-    lenght = models.PositiveIntegerField(verbose_name='Длина цветка', help_text='в сантиметрах', null=True, blank=True)
+    length = models.PositiveIntegerField(verbose_name='Длина цветка', help_text='в сантиметрах', null=True, blank=True)
     color = models.ForeignKey(Colors,
                               on_delete=models.PROTECT,
                               verbose_name='Цвет',
@@ -109,7 +120,9 @@ class Flower(models.Model):
         verbose_name_plural = 'Цветы'
 
     def __str__(self):
-        return f'{self.name} ({self.lenght} см.)'
+        if self.length is None:
+            return f'{self.name}, цвет: {self.color}'
+        return f'{self.name} ({self.length} см.), цвет: {self.color}'
 
 
 class Greenery(models.Model):
