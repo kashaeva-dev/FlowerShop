@@ -10,7 +10,9 @@ from shopbot.models import (
     Order,
     Occasion,
     Flower,
-    Composition,
+    Greenery,
+    FlowerComposition,
+    GreeneryComposition,
 )
 
 
@@ -23,4 +25,6 @@ admin.site.register(Bouquet)
 admin.site.register(Order)
 admin.site.register(Occasion)
 admin.site.register(Flower)
-admin.site.register(Composition)
+admin.site.register(Greenery)
+admin.site.register(FlowerComposition)
+admin.site.register(GreeneryComposition)

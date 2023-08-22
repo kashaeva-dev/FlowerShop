@@ -58,7 +58,7 @@ class Staff(User):
         verbose_name_plural = 'Сотрудники'
 
     def __str__(self):
-        return f'{self.chat_id}: {self.first_name} {self.last_name}'
+        return f'{self.telegram_id}: {self.first_name} {self.last_name} - {self.role}'
 
 
 class Occasion(models.Model):
@@ -95,7 +95,9 @@ class Gamma(models.Model):
 
 
 class Flower(models.Model):
+    genus = models.CharField(max_length=40, verbose_name='Род растения')
     name = models.CharField(max_length=40, verbose_name='Название цветка')
+    lenght = models.PositiveIntegerField(verbose_name='Длина цветка', help_text='в сантиметрах', null=True, blank=True)
     color = models.ForeignKey(Colors,
                               on_delete=models.PROTECT,
                               verbose_name='Цвет',
@@ -107,6 +109,17 @@ class Flower(models.Model):
         verbose_name_plural = 'Цветы'
 
     def __str__(self):
+        return f'{self.name} ({self.lenght} см.)'
+
+
+class Greenery(models.Model):
+    name = models.CharField(max_length=40, verbose_name='Название зелени')
+
+    class Meta:
+        verbose_name = 'Зелень'
+        verbose_name_plural = 'Зелень'
+
+    def __str__(self):
         return self.name
 
 
@@ -114,11 +127,17 @@ class Bouquet(models.Model):
     image = models.ImageField(verbose_name='Изображение', upload_to='bouquets')
     name = models.CharField(max_length=40, verbose_name='Название букета')
     flowers = models.ManyToManyField(Flower,
-                                    through='Composition',
-                                    verbose_name='Цветы',
-                                    related_name='bouquets',
-                                    )
-    meaning = models.TextField(verbose_name='Описание')
+                                     through='FlowerComposition',
+                                     verbose_name='Цветы',
+                                     related_name='bouquets',
+                                     )
+    greenery = models.ManyToManyField(Greenery,
+                                      through='GreeneryComposition',
+                                      verbose_name='Зелень',
+                                      related_name='bouquets',
+                                      )
+    meaning = models.TextField(verbose_name='Значение')
+    wrapping = models.CharField(max_length=40, verbose_name='Упаковка', null=True, blank=True)
     occasion = models.ManyToManyField(Occasion,
                                       verbose_name='Повод',
                                       related_name='bouquets',
@@ -133,22 +152,43 @@ class Bouquet(models.Model):
         return self.name
 
 
-class Composition(models.Model):
+class FlowerComposition(models.Model):
     bouquet = models.ForeignKey(Bouquet,
                                 on_delete=models.PROTECT,
                                 verbose_name='Букет',
-                                related_name='composition',
+                                related_name='flower_composition',
                                 )
     flower = models.ForeignKey(Flower,
                                on_delete=models.PROTECT,
                                verbose_name='Цветок',
-                               related_name='composition',
+                               related_name='flower_composition',
                                )
     quantity = models.PositiveIntegerField(verbose_name='Количество')
 
     class Meta:
-        verbose_name = 'Состав'
-        verbose_name_plural = 'Составы'
+        verbose_name = 'Цветы в букетах'
+        verbose_name_plural = 'Цветы в букетах'
+
+    def __str__(self):
+        return f'{self.bouquet.name}: {self.flower.name} - {self.quantity} шт.'
+
+
+class GreeneryComposition(models.Model):
+    bouquet = models.ForeignKey(Bouquet,
+                                on_delete=models.PROTECT,
+                                verbose_name='Букет',
+                                related_name='greenery_composition',
+                                )
+    greenery = models.ForeignKey(Greenery,
+                                 on_delete=models.PROTECT,
+                                 verbose_name='Зелень',
+                                 related_name='greenery_composition',
+                                 )
+    quantity = models.PositiveIntegerField(verbose_name='Количество')
+
+    class Meta:
+        verbose_name = 'Зелень в букетах'
+        verbose_name_plural = 'Зелень в букетах'
 
     def __str__(self):
         return f'{self.bouquet.name}: {self.flower.name} - {self.quantity} шт.'

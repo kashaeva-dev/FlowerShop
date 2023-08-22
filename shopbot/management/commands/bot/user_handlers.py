@@ -3,13 +3,18 @@ from aiogram.types import Message
 from aiogram.filters import Command
 from asgiref.sync import sync_to_async
 
-from shopbot.models import Client, Advertisement
+from shopbot.models import Client, Advertisement, Staff
 
 router = Router()
 
 
 @router.message(Command(commands=["start"]))
 async def start_command_handler(message: Message):
+    staff = await sync_to_async(Staff.objects.filter(telegram_id=message.from_user.id).first)()
+    if staff:
+        await message.answer('Привет!\nМы тебя уже знаем! Ты наш сотрудник!')
+        return
+
     user_id = message.from_user.id
     refer_id = None
 
@@ -21,6 +26,7 @@ async def start_command_handler(message: Message):
     except TypeError:
         refer_id = None
 
+    advertisement = None
     if refer_id:
         advertisement = await sync_to_async(Advertisement.objects.filter(refer_id=refer_id).first)()
 
