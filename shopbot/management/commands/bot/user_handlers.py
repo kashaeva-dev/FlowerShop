@@ -1,43 +1,34 @@
-from aiogram import Router
-from aiogram.types import Message
+from aiogram import Router, F
+from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
 from aiogram.filters import Command
-from asgiref.sync import sync_to_async
-
-from shopbot.models import Client, Advertisement, Staff
+from shopbot.management.commands.bot.user_keyboards import give_buttons_with_occasion, give_buttons_with_prices
+from aiogram.fsm.context import FSMContext
+from aiogram.filters.state import StatesGroup, State
 
 router = Router()
 
 
+class OrderOccasion(StatesGroup):
+    name_occasion = State()
+
+
 @router.message(Command(commands=["start"]))
 async def start_command_handler(message: Message):
-    staff = await sync_to_async(Staff.objects.filter(telegram_id=message.from_user.id).first)()
-    if staff:
-        await message.answer('Привет!\nМы тебя уже знаем! Ты наш сотрудник!')
-        return
-
-    user_id = message.from_user.id
-    refer_id = None
-
-    if " " in message.text:
-        refer_id = message.text.split(" ")[1]
-
-    try:
-        refer_id = int(refer_id)
-    except TypeError:
-        refer_id = None
-
-    advertisement = None
-    if refer_id:
-        advertisement = await sync_to_async(Advertisement.objects.filter(refer_id=refer_id).first)()
+    await message.answer('К какому событию готовимся? Выберите один из вариантов, либо укажите свой',
+                         reply_markup=await give_buttons_with_occasion())
 
 
-    client, created = await sync_to_async(Client.objects.get_or_create)(telegram_id=user_id)
+@router.callback_query(F.data == 'какой повод')
+async def handle_another_occasion(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer('Укажите повод для заказа букета', reply_markup=ReplyKeyboardRemove())
+    await state.set_state(OrderOccasion.name_occasion)
 
-    if created:
-        client.advertisement = advertisement
-        client.first_name = message.from_user.first_name
-        await sync_to_async(client.save)()
-        await message.answer('Привет!\nМы тебя зарегистрировали!')
-    else:
-        await message.answer('Привет!\nМы тебя уже знаем!')
 
+@router.message(OrderOccasion.name_occasion)
+async def handle_price_another_occasion(mess: Message):
+    await mess.answer('На какую сумму рассчитываете?', reply_markup=await give_buttons_with_prices())
+
+
+@router.callback_query(F.data == 'цена')
+async def handle_prices(callback: CallbackQuery):
+    await callback.message.answer('На какую сумму рассчитываете?', reply_markup=await give_buttons_with_prices())
