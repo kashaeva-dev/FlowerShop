@@ -1,49 +1,37 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-
-async def give_buttons_with_occasion():
-    inline_keyboard = [
-        [
-            InlineKeyboardButton(text='День Рождения', callback_data='цена'),
-        ],
-        [
-            InlineKeyboardButton(text='Cвадьба', callback_data='цена'),
-        ],
-        [
-            InlineKeyboardButton(text='В школу', callback_data='цена'),
-        ],
-        [
-            InlineKeyboardButton(text='Без повода', callback_data='цена'),
-        ],
-        [
-            InlineKeyboardButton(text='Другой повод', callback_data='какой повод'),
-        ],
-    ]
-
-    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
-
-
-async def give_buttons_with_prices():
-    inline_keyboard = [
-        [
-            InlineKeyboardButton(text='До 500 рублей', callback_data='букет'),
-        ],
-        [
-            InlineKeyboardButton(text='До 1000 рублей', callback_data='букет'),
-        ],
-        [
-            InlineKeyboardButton(text='До 2000 рублей', callback_data='букет'),
-        ],
-        [
-            InlineKeyboardButton(text='Не важно', callback_data='букет'),
-        ],
-    ]
-
-
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.utils.keyboard import KeyboardBuilder
 from asgiref.sync import sync_to_async
 
-from shopbot.models import Bouquet
+from shopbot.models import Bouquet, Occasion
+
+
+async def get_occasions_keyboard():
+    occasions = await sync_to_async(Occasion.objects.all)()
+    builder = KeyboardBuilder(button_type=InlineKeyboardButton)
+    occasion_buttons = []
+    async for occasion in occasions:
+        occasion_button = InlineKeyboardButton(text=occasion.name, callback_data=f'occasion_{occasion.pk}')
+        occasion_buttons.append(occasion_button)
+    builder.row(*occasion_buttons, width=3)
+    return InlineKeyboardMarkup(inline_keyboard=builder.export())
+
+
+async def get_price_ranges_keyboard():
+    inline_keyboard = [
+        [
+            InlineKeyboardButton(text='до 1000 рублей', callback_data='price_1000'),
+        ],
+        [
+            InlineKeyboardButton(text='до 2000 рублей', callback_data='price_2000'),
+        ],
+        [
+            InlineKeyboardButton(text='до 5000 рублей', callback_data='price_5000'),
+        ],
+        [
+            InlineKeyboardButton(text='не важно', callback_data='price_1000000'),
+        ],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
 
 async def get_catalog_keyboard(bouquet_id: int):
@@ -62,6 +50,9 @@ async def get_catalog_keyboard(bouquet_id: int):
         ],
         [
             InlineKeyboardButton(text='Посмотреть состав', callback_data='show_composition_{}'.format(bouquet_id)),
+        ],
+        [
+            InlineKeyboardButton(text='Заказать', callback_data='start_order'),
         ],
     ]
 

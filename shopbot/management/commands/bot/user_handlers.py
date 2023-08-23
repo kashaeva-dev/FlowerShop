@@ -1,7 +1,6 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
 from aiogram.filters import Command
-from shopbot.management.commands.bot.user_keyboards import give_buttons_with_occasion, give_buttons_with_prices
 from aiogram.fsm.context import FSMContext
 from aiogram.filters.state import StatesGroup, State
 
@@ -16,8 +15,12 @@ from asgiref.sync import sync_to_async
 from environs import Env
 
 from conf.settings import BASE_DIR
-from shopbot.models import Client, Advertisement, Staff, Bouquet
-from shopbot.management.commands.bot.user_keyboards import get_catalog_keyboard
+from shopbot.models import Client, Advertisement, Staff, Bouquet, FlowerComposition, GreeneryComposition
+from shopbot.management.commands.bot.user_keyboards import (
+    get_catalog_keyboard,
+    get_occasions_keyboard,
+    get_price_ranges_keyboard,
+)
 
 
 logging.basicConfig(
@@ -37,34 +40,47 @@ bot: Bot = Bot(token=env('TG_BOT_API'), parse_mode='HTML')
 router = Router()
 
 
-class OrderOccasion(StatesGroup):
-    name_occasion = State()
+class Order(StatesGroup):
+    user_occasion = State()
 
 
 @router.message(Command(commands=["start"]))
 async def start_command_handler(message: Message):
     await message.answer('К какому событию готовимся? Выберите один из вариантов, либо укажите свой',
-                         reply_markup=await give_buttons_with_occasion())
+                         reply_markup=await get_occasions_keyboard())
 
 
-@router.callback_query(F.data == 'какой повод')
-async def handle_another_occasion(callback: CallbackQuery, state: FSMContext):
-    await callback.message.answer('Укажите повод для заказа букета', reply_markup=ReplyKeyboardRemove())
-    await state.set_state(OrderOccasion.name_occasion)
+@router.callback_query(F.data.startswith == 'occasion_')
+async def get_occasion_handler(callback: CallbackQuery, state: FSMContext):
+    logger.info(f'start occasion handler - {callback.data}')
+    occasion = callback.data.split('_')[-1]
+    if occasion == '10':
+        await state.set_state(Order.user_occasion)
+        await callback.message.answer('В ответном сообщении напишите свой повод для заказа букета',
+                                      reply_markup=ReplyKeyboardRemove()
+                                      )
+    else:
+        async with state.proxy() as data:
+            data['occasion'] = occasion
+            data['user_occasion'] = None
+        await callback.message.answer('На какую сумму рассчитываете?',
+                                      reply_markup=await get_price_ranges_keyboard())
+
+
+@router.message(Order.user_occasion)
+async def get_user_occasion_handler(message: Message, state: FSMContext):
+    async with state.proxy() as data:
+        data['occasion'] = '10'
+        data['user_occasion'] = message.text
+    await message.answer('На какую сумму рассчитываете?',
+                      reply_markup=await get_price_ranges_keyboard())
 
 
 
-@router.message(OrderOccasion.name_occasion)
-async def handle_price_another_occasion(mess: Message):
-    await mess.answer('На какую сумму рассчитываете?', reply_markup=await give_buttons_with_prices())
-
-    client, created = await sync_to_async(Client.objects.get_or_create)(telegram_id=user_id)
-
-
-
-@router.callback_query(F.data == 'цена')
-async def handle_prices(callback: CallbackQuery):
-    await callback.message.answer('На какую сумму рассчитываете?', reply_markup=await give_buttons_with_prices())
+@router.callback_query(F.data.startswith == 'price_')
+async def get_price_range_handler(callback: CallbackQuery):
+    await callback.message.answer('На какую сумму рассчитываете?',
+                                  reply_markup=await give_buttons_with_prices())
 
 
 @router.message(Command(commands=['catalog']))
@@ -100,24 +116,35 @@ async def show_more_catalog_handler(callback: CallbackQuery):
                                  reply_markup=await get_catalog_keyboard(bouquet.id))
 
 
-# @router.callback_query(F.data.startswith('show_composition_'))
-# async def show_composition_handler(callback: CallbackQuery):
-#     bouquet_id = callback.data.split('_')[-1]
-#     bouquet = await sync_to_async(Bouquet.objects.filter(pk=bouquet_id)
-#                                   .prefetch_related('flowers')
-#                                   .prefetch_related('greenery')
-#                                   .first)()
-#     flowers = []
-#     async for flower1 in bouquet.flowers.all():
-#         flowers.append(f'{flower1.name}')
-#     flowers = ''.join(flowers)
-#     greeneries = []
-#     async for green in bouquet.greenery.all():
-#         greeneries.append(f'{green.name}')
-#     greenery = ''.join(greeneries)
-#     await callback.answer(
-#         text=f'Состав букета:\n\n'
-#         f'{flowers}\n{greenery}',
-#         show_alert=True,
-#     )
+@router.callback_query(F.data.startswith('show_composition_'))
+async def show_composition_handler(callback: CallbackQuery):
+    bouquet_id = callback.data.split('_')[-1]
+    bouquet = await sync_to_async(Bouquet.objects.filter(pk=bouquet_id)
+                                  .first)()
+    composition_flowers = await sync_to_async(FlowerComposition.objects.select_related('flower')
+                                              .filter)(bouquet=bouquet)
+    flowers = []
+    async for composition_flower in composition_flowers:
+        flowers.append(f'{composition_flower.flower.name} - {composition_flower.quantity} шт.\n')
+    flowers = ''.join(flowers)
+    composition_greeneries = await sync_to_async(GreeneryComposition.objects.select_related('greenery')
+                                                 .filter)(bouquet=bouquet)
+    greeneries = []
+    async for composition_greenery in composition_greeneries:
+        greeneries.append(f'{composition_greenery.greenery.name} - {composition_greenery.quantity} шт./упак.\n')
+    greeneries = ''.join(greeneries)
+    image_path = os.path.join(BASE_DIR, bouquet.image.url.lstrip('/'))
+    logger.info(f'picture path {image_path}')
+    photo = FSInputFile(image_path)
+    await bot.edit_message_media(chat_id=callback.from_user.id,
+                                 message_id=callback.message.message_id,
+                                 media=InputMediaPhoto(media=photo,
+                                                       caption=f'{bouquet.name.upper()}\n\n'
+                                                               f'<b>🌹 Состав букета</b>:\n\n'
+                                                               f'{flowers}\n{greeneries}\n'
+                                                               f'Упаковка - {bouquet.wrapping}\n\n'
+                                                               f'<b>💰 {bouquet.price} руб.</b>'),
+                                 reply_markup=await get_catalog_keyboard(bouquet.id)
+                                 )
+
 

@@ -2,3 +2,4 @@ Django==4.2.4
 aiogram-3.0.0rc2
 environs-9.5.0
 Pillow-10.0.0
+more_itertools-10.1.0
