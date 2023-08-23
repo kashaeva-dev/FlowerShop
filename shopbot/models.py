@@ -197,14 +197,14 @@ class GreeneryComposition(models.Model):
                                  verbose_name='Зелень',
                                  related_name='greenery_composition',
                                  )
-    quantity = models.PositiveIntegerField(verbose_name='Количество')
+    quantity = models.FloatField(verbose_name='Количество')
 
     class Meta:
         verbose_name = 'Зелень в букетах'
         verbose_name_plural = 'Зелень в букетах'
 
     def __str__(self):
-        return f'{self.bouquet.name}: {self.flower.name} - {self.quantity} шт.'
+        return f'{self.bouquet.name}: {self.greenery.name} - {self.quantity} шт.'
 
 
 class ConsultingStatus(models.Model):
