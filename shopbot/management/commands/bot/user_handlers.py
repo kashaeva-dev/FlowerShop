@@ -76,8 +76,30 @@ async def get_occasion_handler(callback: CallbackQuery, state: FSMContext):
 @router.message(Order.user_occasion)
 async def get_user_occasion_handler(message: Message, state: FSMContext):
     await state.update_data(occasion='10', user_occasion=message.text)
+    await state.clear()
     await message.answer('На какую сумму рассчитываете?',
                       reply_markup=await get_price_ranges_keyboard())
+
+
+@router.callback_query(F.data.startswith('price_'))
+async def send_bouquet_handler(callback: CallbackQuery, state: FSMContext):
+    logger.info(f'start send_bouquet_handler')
+    # price_border = callback.data.split('_')[-1]
+    # user_data = await state.get_data()
+    # bouquet_variants = await sync_to_async(
+    #     Bouquet.objects.filter)(price_lte=price_border, o)
+    bouquet = await sync_to_async(Bouquet.objects.all().first)()
+    image_path = os.path.join(BASE_DIR, bouquet.image.url.lstrip('/'))
+    logger.info(f'picture path {image_path}')
+    photo = FSInputFile(image_path)
+    await bot.send_photo(
+        chat_id=callback.from_user.id,
+        caption=f'{bouquet.name.upper()}\n\n'
+        f'<b>💡 Смысл букета</b>:\n\n{bouquet.meaning}\n\n'
+        f'<b>💰 {bouquet.price} руб.</b>',
+        photo=photo,
+        reply_markup=await get_catalog_keyboard(bouquet.pk)
+    )
 
 
 @router.message(Command(commands=['catalog']))
