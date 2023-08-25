@@ -57,3 +57,14 @@ async def get_catalog_keyboard(bouquet_id: int):
     ]
 
     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
+
+
+async def get_order_keybord():
+    inline_keyboard = [
+        [
+            InlineKeyboardButton(text='📞 Заказать консультацию', callback_data='consultation'),
+            InlineKeyboardButton(text='💐 Посмотреть всю коллекцию', callback_data='all_bouquets'),
+        ]
+    ]
+
+    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
