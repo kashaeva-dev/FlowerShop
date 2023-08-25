@@ -15,7 +15,15 @@ from asgiref.sync import sync_to_async
 from environs import Env
 
 from conf.settings import BASE_DIR
-from shopbot.models import Client, Advertisement, Staff, Bouquet, FlowerComposition, GreeneryComposition
+from shopbot.models import (
+    Client,
+    Advertisement,
+    Staff,
+    Bouquet,
+    FlowerComposition,
+    GreeneryComposition,
+    Occasion,
+)
 from shopbot.management.commands.bot.user_keyboards import (
     get_catalog_keyboard,
     get_occasions_keyboard,
@@ -50,37 +58,26 @@ async def start_command_handler(message: Message):
                          reply_markup=await get_occasions_keyboard())
 
 
-@router.callback_query(F.data.startswith == 'occasion_')
+@router.callback_query(F.data.startswith('occasion_'))
 async def get_occasion_handler(callback: CallbackQuery, state: FSMContext):
     logger.info(f'start occasion handler - {callback.data}')
     occasion = callback.data.split('_')[-1]
     if occasion == '10':
-        await state.set_state(Order.user_occasion)
         await callback.message.answer('В ответном сообщении напишите свой повод для заказа букета',
                                       reply_markup=ReplyKeyboardRemove()
                                       )
+        await state.set_state(Order.user_occasion)
     else:
-        async with state.proxy() as data:
-            data['occasion'] = occasion
-            data['user_occasion'] = None
+        await state.update_data(occasion=occasion, user_occasion=None)
         await callback.message.answer('На какую сумму рассчитываете?',
                                       reply_markup=await get_price_ranges_keyboard())
 
 
 @router.message(Order.user_occasion)
 async def get_user_occasion_handler(message: Message, state: FSMContext):
-    async with state.proxy() as data:
-        data['occasion'] = '10'
-        data['user_occasion'] = message.text
+    await state.update_data(occasion='10', user_occasion=message.text)
     await message.answer('На какую сумму рассчитываете?',
                       reply_markup=await get_price_ranges_keyboard())
-
-
-
-@router.callback_query(F.data.startswith == 'price_')
-async def get_price_range_handler(callback: CallbackQuery):
-    await callback.message.answer('На какую сумму рассчитываете?',
-                                  reply_markup=await give_buttons_with_prices())
 
 
 @router.message(Command(commands=['catalog']))
