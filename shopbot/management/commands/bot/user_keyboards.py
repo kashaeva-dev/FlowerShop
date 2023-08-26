@@ -34,6 +34,20 @@ async def get_price_ranges_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
 
+async def get_bouquet_keyboard(bouquet_id: int):
+    inline_keyboard = [
+        [
+            InlineKeyboardButton(text='Посмотреть состав',
+                                 callback_data='show_occasion_composition_{}'.format(bouquet_id)),
+        ],
+        [
+            InlineKeyboardButton(text='Заказать', callback_data=f'start_order_{bouquet_id}'),
+        ],
+    ]
+
+    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
+
+
 async def get_catalog_keyboard(bouquet_id: int):
     bouquet_number = await sync_to_async(Bouquet.objects.count)()
     next_bouquet_id = (int(bouquet_id) + 1) % bouquet_number
@@ -52,7 +66,7 @@ async def get_catalog_keyboard(bouquet_id: int):
             InlineKeyboardButton(text='Посмотреть состав', callback_data='show_composition_{}'.format(bouquet_id)),
         ],
         [
-            InlineKeyboardButton(text='Заказать', callback_data='start_order'),
+            InlineKeyboardButton(text='Заказать', callback_data=f'start_order_{bouquet_id}'),
         ],
     ]
 

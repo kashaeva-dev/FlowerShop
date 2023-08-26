@@ -17,7 +17,7 @@ class Advertisement(models.Model):
 
 class User(models.Model):
     telegram_id = models.PositiveBigIntegerField(verbose_name='Telegram ID')
-    first_name = models.CharField(max_length=40, verbose_name='Имя', null=True)
+    first_name = models.CharField(max_length=40, verbose_name='Имя', null=True,blank=True)
     created_at = models.DateTimeField(verbose_name='Создано', auto_now_add=True)
 
     class Meta:
@@ -247,6 +247,8 @@ class Consulting(models.Model):
                               on_delete=models.PROTECT,
                               verbose_name='Гамма',
                               related_name='consultings',
+                              blank=True,
+                              null=True
                               )
 
     class Meta:
@@ -303,7 +305,7 @@ class Order(models.Model):
                                      null=True,
                                      blank=True,
                                      )
-    status = models.CharField(max_length=40, verbose_name='Статус', choices=STATUS_CHOICES)
+    status = models.CharField(max_length=40, verbose_name='Статус', choices=STATUS_CHOICES, blank=True, null=True)
     created_at = models.DateTimeField(verbose_name='Дата создания', auto_now_add=True)
     updated_at = models.DateTimeField(verbose_name='Дата изменения', auto_now=True)
     delivery_date = models.DateTimeField(verbose_name='Дата доставки')
@@ -325,4 +327,5 @@ class Order(models.Model):
 
     def __str__(self):
         return f'{self.bouquet.name}: ' \
-               f'{self.delivery_date} по адресу: {self.delivery_address} - {self.status}'
+               f' {self.delivery_date.strftime("%d.%m.%Y %H:%M")}' \
+               f'по адресу: {self.delivery_address} - {self.status}'

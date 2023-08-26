@@ -27,7 +27,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-nugm5zt5i%fd454llu*h7lg&i$^l69^ly%-kb0d7=@umvhdwz4'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env('DEBUG', False)
+DEBUG = env('DEBUG', True)
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS',[])
 
@@ -130,7 +130,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
 
 if __name__ == '__main__':
     print(ALLOWED_HOSTS)
