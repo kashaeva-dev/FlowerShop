@@ -33,7 +33,6 @@ async def get_price_ranges_keyboard():
     ]
     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
-
 async def get_catalog_keyboard(bouquet_id: int):
     bouquet_number = await sync_to_async(Bouquet.objects.count)()
     next_bouquet_id = (int(bouquet_id) + 1) % bouquet_number

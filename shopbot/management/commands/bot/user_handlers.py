@@ -15,7 +15,7 @@ from asgiref.sync import sync_to_async
 from environs import Env
 
 from conf.settings import BASE_DIR
-from shopbot.models import Client, Advertisement, Staff, Bouquet, Order
+# from shopbot.models import Client, Advertisement, Staff, Bouquet, Order
 from shopbot.management.commands.bot.user_keyboards import get_catalog_keyboard
 from shopbot.management.commands.bot.user_menu import *
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
@@ -24,6 +24,7 @@ from shopbot.models import (
     Client,
     Advertisement,
     Staff,
+    Order,
     Bouquet,
     FlowerComposition,
     GreeneryComposition,
@@ -51,7 +52,7 @@ bot: Bot = Bot(token=env('TG_BOT_API'), parse_mode='HTML')
 router = Router()
 
 
-class Order(StatesGroup):
+class OrderState(StatesGroup):
     user_occasion = State()
     user_name = State()
     user_adress = State()
@@ -62,8 +63,8 @@ class Order(StatesGroup):
 
 @router.message(Command(commands=["start"]))
 async def start_command_handler(message: Message):
-    await message.answer('К какому событию готовимся? Выберите один из вариантов, либо укажите свой',
-                         reply_markup=await get_occasions_keyboard())
+    await bot.send_message(message.from_user.id, 'Вас приветствует бот-флорист', reply_markup=main_menu)
+
 
 
 @router.callback_query(F.data.startswith('occasion_'))
@@ -74,14 +75,14 @@ async def get_occasion_handler(callback: CallbackQuery, state: FSMContext):
         await callback.message.answer('В ответном сообщении напишите свой повод для заказа букета',
                                       reply_markup=ReplyKeyboardRemove()
                                       )
-        await state.set_state(Order.user_occasion)
+        await state.set_state(OrderState.user_occasion)
     else:
         await state.update_data(occasion=occasion, user_occasion=None)
         await callback.message.answer('На какую сумму рассчитываете?',
                                       reply_markup=await get_price_ranges_keyboard())
 
 
-@router.message(Order.user_occasion)
+@router.message(OrderState.user_occasion)
 async def get_user_occasion_handler(message: Message, state: FSMContext):
     await state.update_data(occasion='10', user_occasion=message.text)
     await state.clear()
@@ -173,15 +174,19 @@ async def show_more_catalog_handler(callback: CallbackQuery):
 
 
 
-@router.message(Command(commands=['order']))
+@router.message(F.text == "Заказы (для курьера)")
 async def show_start_order(message: Message):
     await bot.send_message(message.from_user.id, 'Заказы 🗒', reply_markup=order_main_menu)
 
 
-@router.message(F.text == "главное меню")
-async def show_start_order(message: Message):
-    await bot.send_message(message.from_user.id, 'переход в основное меню бота...', reply_markup=order_main_menu)
+@router.message(F.text == "Главное меню")
+async def show_main_menu(message: Message):
+    await bot.send_message(message.from_user.id, 'и снова привет от бота...', reply_markup=main_menu)
 
+@router.message(F.text == "Оформить заказ")
+async def create_order(message: Message):
+    await message.answer('К какому событию готовимся? Выберите один из вариантов, либо укажите свой',
+                         reply_markup=await get_occasions_keyboard())
 
 @router.message(F.text == "Посмотреть заказы")
 async def show_order(message: Message):
@@ -210,31 +215,70 @@ async def order_new_only(message: Message):
     orders = ''.join(full_order)
     await message.answer(f'Перечень заказов!\n\n{orders}')
 
-@router.message(F.text.lower() == "изменить статус заказа")
+@router.message(F.text == "Cтатусы заказов (изменение)")
 async def change_order_type(message: Message):
     await bot.send_message(message.from_user.id, "🗒 - укажите тип заказа для смены статуса", reply_markup=order_change_type)
 
 @router.message(F.text.startswith('*'))
 async def get_new_order_id(message: Message):
     id = message.text.split('-')[-1].replace('[','').replace(']','')
-    await bot.send_message(message.from_user.id, f"id заказа для смены статуса {id}", reply_markup=order_main_menu)
-    # DO: по id изменить в БД вид заказа на следующий т.е. новый-
+    await bot.send_message(message.from_user.id, "Укажите (при наличии) клиента для смены статуса", reply_markup=order_main_menu)
+    await sync_to_async(Order.objects.filter(pk=id).update)(status="processing")
+
+@router.message(F.text.startswith('@'))
+async def get_new_order_id(message: Message):
+    id = message.text.split('-')[-1].replace('[','').replace(']','')
+    await bot.send_message(message.from_user.id, "Укажите (при наличии) клиента для смены статуса - Доставлен", reply_markup=order_main_menu)
+    await sync_to_async(Order.objects.filter(pk=id).update)(status="delivered")
+
+@router.message(F.text.startswith('!'))
+async def get_new_order_id(message: Message):
+    id = message.text.split('-')[-1].replace('[','').replace(']','')
+    await bot.send_message(message.from_user.id, "Укажите (при наличии) клиента для смены статуса - Отменен", reply_markup=order_main_menu)
+    await sync_to_async(Order.objects.filter(pk=id).update)(status="canceled")
 
 
-@router.message(F.text.lower() == "new - новый")
+@router.message(F.text == "Принять 'Новый' в работу")
 async def change_new_type(message: Message):
     builder = ReplyKeyboardBuilder()
     async for order in Order.objects.filter(status='new').order_by('delivery_date'):
-        builder.add(types.KeyboardButton(text=f"*{order.contact_name}-{order.contact_phone}-[{order.id}]", callback_data="*"))
+        builder.add(types.KeyboardButton(text=f"*{order.contact_name}\nт.{order.contact_phone}-[{order.id}]", callback_data="*"))
     builder.adjust(1)
-
     await message.answer("Выберите клиента:",reply_markup=builder.as_markup(resize_keyboard=True))
 
-# @router.callback_query(F.data.startswith('*'))
-# async def send_random_value(callback: types.CallbackQuery):
-#     await callback.message.answer("str(randint(1, 10))")
+@router.message(F.text == "Указать - Доставлен")
+async def change_new_type(message: Message):
+    builder = ReplyKeyboardBuilder()
+    async for order in Order.objects.filter(status='processing').order_by('delivery_date'):
+        builder.add(types.KeyboardButton(text=f"@{order.contact_name}\nт.{order.contact_phone}-[{order.id}]", callback_data="@"))
+    builder.adjust(1)
+    await message.answer("Выберите клиента которому доставлен заказ",reply_markup=builder.as_markup(resize_keyboard=True))
 
-# async def get_order_id(callback: types.CallbackQuery):
+@router.message(F.text == "Указать - Отменен")
+async def change_new_type(message: Message):
+    builder = ReplyKeyboardBuilder()
+    async for order in Order.objects.filter(status='processing').order_by('delivery_date'):
+        builder.add(types.KeyboardButton(text=f"!{order.contact_name}\nт.{order.contact_phone}-[{order.id}]", callback_data="!"))
+    builder.adjust(1)
+    await message.answer("Выберите клиента у которого отменен заказ",reply_markup=builder.as_markup(resize_keyboard=True))
+
+@router.message(F.text == "Заказы - В работе")
+async def change_new_type(message: Message):
+    builder = ReplyKeyboardBuilder()
+    async for order in Order.objects.filter(status='processing').order_by('delivery_date'):
+        builder.add(types.KeyboardButton(text=f"#{order.contact_name}\nт.{order.contact_phone}-[{order.id}]", callback_data="#"))
+    builder.adjust(1)
+    await message.answer("Заказы в работе\nУкажите клиента для подробной информации",reply_markup=builder.as_markup(resize_keyboard=True))
+
+@router.message(F.text.startswith('#'))
+async def get_new_order_id(message: Message):
+    id = message.text.split('-')[-1].replace('[','').replace(']','')
+    await bot.send_message(message.from_user.id, f"Укажите клиента (при наличии) для детализации заказа", reply_markup=order_main_menu)
+    order_detail = await sync_to_async(Order.objects.filter(pk=id).first)()
+    await message.answer(f"Заказ клиента №"
+                         f"{order_detail.id} Статус [{order_detail.status}]\n"
+                         f"Создан {order_detail.created_at}. Дата доставки {order_detail.delivery_date}\n"
+                         f"{order_detail.delivery_address} {order_detail.contact_phone} {order_detail.contact_name}")
 
 
 @router.callback_query(F.data.startswith('show_composition_'))
@@ -277,15 +321,15 @@ async def show_order_handler(callback: CallbackQuery, state: FSMContext):
                                   )
 
 
-@router.message(Order.user_name)
+@router.message(OrderState.user_name)
 async def show_adress_handler(message: Message, state: FSMContext):
-    await state.set_state(Order.user_adress)
+    await state.set_state(OrderState.user_adress)
     await message.answer('🏠 Укажите Ваш адрес',
                          reply_markup=ReplyKeyboardRemove()
                          )
 
 
-@router.message(Order.user_adress)
+@router.message(OrderState.user_adress)
 async def show_datetime_handler(message: Message, state: FSMContext):
     await state.set_state(Order.user_date_time_order)
     await message.answer('⏰ Укажите дату и время доставки',
@@ -293,7 +337,7 @@ async def show_datetime_handler(message: Message, state: FSMContext):
                          )
 
 
-@router.message(Order.user_date_time_order)
+@router.message(OrderState.user_date_time_order)
 async def show_phonenumber_handler(message: Message, state: FSMContext):
     await state.set_state(Order.user_phonenumber_order)
     await message.answer('📲 Укажите Ваш номер телефона',
@@ -301,7 +345,7 @@ async def show_phonenumber_handler(message: Message, state: FSMContext):
                          )
 
 
-@router.message(Order.user_phonenumber_order)
+@router.message(OrderState.user_phonenumber_order)
 async def show_phonenumber_handler(message: Message):
     await message.answer(
         text='Спасибо, за заказ 👍 Наш курьер свяжется с Вами в ближайшее время!\n\n'
@@ -336,7 +380,7 @@ async def show_consultation_handler(callback: CallbackQuery, state: FSMContext):
                                   )
 
 
-@router.message(Order.user_phonenumber_consultation)
+@router.message(OrderState.user_phonenumber_consultation)
 async def show_phonenumber_consultation_handler(message: Message):
     await message.answer(
         text='Флорист скоро свяжется с вами!\n\n'
