@@ -281,7 +281,7 @@ class ConsultingStatusHistory(models.Model):
 class Order(models.Model):
     STATUS_CHOICES = (
         ('new', 'Новый'),
-        ('processing', 'В обработке'),
+        ('processing', 'В работе'),
         ('ready', 'Готов'),
         ('delivered', 'Доставлен'),
         ('canceled', 'Отменен'),
