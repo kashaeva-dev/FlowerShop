@@ -40,3 +40,4 @@ env/
 # Secrets
 secrets.json
 .idea/
+.env
