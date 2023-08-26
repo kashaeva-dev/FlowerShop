@@ -1,4 +1,5 @@
 from aiogram import Bot, Dispatcher
+from aiogram.fsm.storage.memory import MemoryStorage
 from django.core.management import BaseCommand
 
 import conf.settings as settings
@@ -17,8 +18,9 @@ logger = logging.getLogger(__name__)
 env: Env = Env()
 env.read_env()
 
+storage: MemoryStorage = MemoryStorage()
 bot: Bot = Bot(token=env('TG_BOT_API'), parse_mode='HTML')
-dp: Dispatcher = Dispatcher()
+dp: Dispatcher = Dispatcher(storage=storage)
 
 dp.include_router(user_handlers.router)
 
