@@ -17,7 +17,6 @@ from environs import Env
 from conf.settings import BASE_DIR
 from shopbot.models import Client, Advertisement, Staff, Bouquet, Order
 from shopbot.management.commands.bot.user_keyboards import get_catalog_keyboard
-from shopbot.management.commands.bot.user_menu import *
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
 from shopbot.models import (
