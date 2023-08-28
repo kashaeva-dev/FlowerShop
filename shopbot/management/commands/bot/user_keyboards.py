@@ -1,8 +1,50 @@
+import logging
+
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import KeyboardBuilder
 from asgiref.sync import sync_to_async
 
-from shopbot.models import Bouquet, Occasion
+from shopbot.models import Bouquet, Occasion, Staff
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(filename)s:%(lineno)d - %(levelname)-8s - %(asctime)s - %(funcName)s - %(name)s - %(message)s'
+)
+
+logger = logging.getLogger(__name__)
+
+
+
+async def get_main_menu(telegram_id):
+    inline_keyboard = [
+        [
+            InlineKeyboardButton(text='Каталог', callback_data='catalog'),
+            InlineKeyboardButton(text='Оформить заказ', callback_data='start_order'),
+        ],
+        [
+            InlineKeyboardButton(text='Заказать консультацию', callback_data='consultation'),
+        ],
+    ]
+    curriers = await sync_to_async(Staff.objects.filter)(role='currier')
+    currier_ids = []
+
+    async for currier in curriers:
+        currier_ids.append(currier.telegram_id)
+    logger.info(f'currier ids: {currier_ids}')
+    if telegram_id in currier_ids:
+        inline_keyboard += [
+            [
+                InlineKeyboardButton(text=f'Заказы (для курьера)', callback_data='currier'),
+            ],
+        ]
+
+    inline_keyboard += [
+        [
+            InlineKeyboardButton(text='О нас', callback_data='FAQ'),
+        ],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
 
 async def get_occasions_keyboard():
@@ -78,7 +120,16 @@ async def get_order_keybord():
         [
             InlineKeyboardButton(text='📞 Заказать консультацию', callback_data='consultation'),
             InlineKeyboardButton(text='💐 Посмотреть всю коллекцию', callback_data='all_bouquets'),
+            InlineKeyboardButton(text='⚙ Главное меню', callback_data='main_menu'),
         ]
     ]
 
+    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
+
+async def to_main_menu():
+    inline_keyboard = [
+        [
+            InlineKeyboardButton(text='⚙ Главное меню', callback_data='main_menu'),
+        ]
+    ]
     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)

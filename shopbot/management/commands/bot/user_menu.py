@@ -16,7 +16,6 @@ main_menu = types.ReplyKeyboardMarkup(
 kb_choise_order = [
     [types.KeyboardButton(text="Посмотреть заказы")],
     [types.KeyboardButton(text="Cтатусы заказов (изменение)")],
-    [types.KeyboardButton(text="Главное меню")]
 ]
 order_main_menu = types.ReplyKeyboardMarkup(
     keyboard=kb_choise_order,

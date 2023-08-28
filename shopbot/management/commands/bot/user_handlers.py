@@ -1,3 +1,4 @@
+import pytz as pytz
 from aiogram.types import ReplyKeyboardRemove
 from aiogram.fsm.context import FSMContext
 from aiogram.filters.state import StatesGroup, State
@@ -6,7 +7,7 @@ import logging
 import os
 import datetime
 
-from aiogram import Router, Bot
+from aiogram import Router, Bot, types
 from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
 from aiogram.filters import Command
 from aiogram import F
@@ -15,9 +16,10 @@ from environs import Env
 
 from conf.settings import BASE_DIR
 # from shopbot.models import Client, Advertisement, Staff, Bouquet, Order
-from shopbot.management.commands.bot.user_keyboards import get_catalog_keyboard
+from shopbot.management.commands.bot.user_keyboards import get_catalog_keyboard, get_main_menu, to_main_menu
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
+from shopbot.management.commands.bot.user_menu import main_menu, order_main_menu, order_choise, order_change_type
 from shopbot.models import (
     Client,
     Staff,
@@ -63,8 +65,37 @@ class OrderState(StatesGroup):
 
 @router.message(Command(commands=["start"]))
 async def start_command_handler(message: Message):
-    await bot.send_message(message.from_user.id, 'Вас приветствует бот-флорист', reply_markup=main_menu)
+    telegram_id = message.from_user.id
 
+    await bot.send_message(message.from_user.id, 'Вас приветствует бот-флорист',
+                           reply_markup= await get_main_menu(telegram_id))
+
+
+@router.callback_query(F.data == 'main_menu')
+async def main_menu_handler(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.edit_text('ГЛАВНОЕ МЕНЮ:',
+                                     reply_markup=await get_main_menu(callback.from_user.id))
+
+
+@router.callback_query(F.data == 'FAQ')
+async def FAQ_handler(callback: CallbackQuery):
+    await callback.message.edit_text('<b>FLOWER SHOP</b>\n\n'
+                                     'Закажите доставку праздничного букета,'
+                                     ' собранного специально для ваших любимых,'
+                                     ' родных и коллег. Наш букет со смыслом'
+                                     ' станет главным подарком на вашем празднике!\n\n'
+                                     '<b>Адреса салонов:</b>\n'
+                                     '1. Красноярск, ул. Лесная, д.3\n'
+                                     '2. Красноярск, ул. Праздничная, д18\n\n'
+                                     '<b>Телефон:</b> 888-88-88',
+                                     reply_markup=await to_main_menu())
+
+
+@router.callback_query(F.data == 'start_order')
+async def start_order_handler(callback: CallbackQuery):
+    await callback.message.edit_text('К какому событию готовимся? Выберите один из вариантов, либо укажите свой',
+                                     reply_markup=await get_occasions_keyboard())
 
 
 @router.callback_query(F.data.startswith('occasion_'))
@@ -112,28 +143,7 @@ async def get_price_range_handler(callback: CallbackQuery, state: FSMContext):
         )
 
 
-@router.callback_query(F.data.startswith('price_'))
-async def send_bouquet_handler(callback: CallbackQuery, state: FSMContext):
-    logger.info(f'start send_bouquet_handler')
-    # price_border = callback.data.split('_')[-1]
-    # user_data = await state.get_data()
-    # bouquet_variants = await sync_to_async(
-    #     Bouquet.objects.filter)(price_lte=price_border, o)
-    bouquet = await sync_to_async(Bouquet.objects.all().first)()
-    image_path = os.path.join(BASE_DIR, bouquet.image.url.lstrip('/'))
-    logger.info(f'picture path {image_path}')
-    photo = FSInputFile(image_path)
-    await bot.send_photo(
-        chat_id=callback.from_user.id,
-        caption=f'{bouquet.name.upper()}\n\n'
-        f'<b>💡 Смысл букета</b>:\n\n{bouquet.meaning}\n\n'
-        f'<b>💰 {bouquet.price} руб.</b>',
-        photo=photo,
-        reply_markup=await get_catalog_keyboard(bouquet.pk)
-    )
-
-
-@router.message(Command(commands=['catalog']))
+@router.callback_query(F.data == 'catalog')
 async def show_start_catalog_handler(message: Message):
     bouquet = await sync_to_async(Bouquet.objects.all().first)()
     image_path = os.path.join(BASE_DIR, bouquet.image.url.lstrip('/'))
@@ -199,30 +209,7 @@ async def show_composition_occasion_handler(callback: CallbackQuery):
                                  )
 
 
-# @router.callback_query(F.data.startswith('show_composition_'))
-# async def show_composition_handler(callback: CallbackQuery):
-#     bouquet_id = callback.data.split('_')[-1]
-#     bouquet = await sync_to_async(Bouquet.objects.filter(pk=bouquet_id)
-#                                   .prefetch_related('flowers')
-#                                   .prefetch_related('greenery')
-#                                   .first)()
-#     flowers = []
-#     async for flower1 in bouquet.flowers.all():
-#         flowers.append(f'{flower1.name}')
-#     flowers = ''.join(flowers)
-#     greeneries = []
-#     async for green in bouquet.greenery.all():
-#         greeneries.append(f'{green.name}')
-#     greenery = ''.join(greeneries)
-#     await callback.answer(
-#         text=f'Состав букета:\n\n'
-#         f'{flowers}\n{greenery}',
-#         show_alert=True,
-#     )
-
-
-
-@router.message(F.text == "Заказы (для курьера)")
+@router.callback_query(F.data == "currier")
 async def show_start_order(message: Message):
     await bot.send_message(message.from_user.id, 'Заказы 🗒', reply_markup=order_main_menu)
 
@@ -364,6 +351,7 @@ async def show_composition_handler(callback: CallbackQuery):
 @router.callback_query(F.data.startswith('start_order_'))
 async def show_order_handler(callback: CallbackQuery, state: FSMContext):
     bouquet = int(callback.data.split('_')[-1])
+    logger.info(f'start_order: {bouquet}')
     await state.set_state(OrderState.user_name)
     await callback.message.answer('👤 Укажите Ваше имя',
                                   reply_markup=ReplyKeyboardRemove()
@@ -383,7 +371,7 @@ async def show_adress_handler(message: Message, state: FSMContext):
 @router.message(OrderState.user_adress)
 async def show_datetime_handler(message: Message, state: FSMContext):
     await state.set_state(OrderState.user_date_time_order)
-    await message.answer('⏰ Укажите дату и время доставки',
+    await message.answer('⏰ Укажите дату и время доставки в формате <b>ДД.ММ.ГГГГ ЧЧ:ММ</b>',
                          reply_markup=ReplyKeyboardRemove()
                          )
     await state.update_data(adress=message.text)
@@ -402,28 +390,32 @@ async def show_phonenumber_handler(message: Message, state: FSMContext):
 @router.message(OrderState.user_phonenumber_order)
 async def show_phonenumber_handler(message: Message, state: FSMContext):
     await state.update_data(phonenumber=message.text)
-    await message.answer(
-        text='Спасибо, за заказ 👍 Наш курьер свяжется с Вами в ближайшее время!\n\n'
-             '<b>Хотите что-то еще более уникальное? '
-             'Подберите другой букет из нашей коллекции или закажите консультацию флориста</b>',
-        reply_markup=await get_order_keybord(),
-        parse_mode='HTML'
-    )
     order_data = await state.get_data()
     client, _ = await sync_to_async(Client.objects.get_or_create)(telegram_id=message.from_user.id,
                                                                   first_name=order_data['user_name'])
     bouquet = await sync_to_async(Bouquet.objects.get)(pk=order_data['bouquet'])
     logger.info(f'{client}')
     await state.update_data(client=client)
-    await sync_to_async(Order.objects.create)(
+    delivery_date = datetime.datetime.strptime(order_data['date'], '%d.%m.%Y %H:%M')
+    delivery_date = delivery_date.astimezone(pytz.timezone('Europe/Moscow'))
+    new_order = await sync_to_async(Order.objects.create)(
         client=client,
         bouquet=bouquet,
-        delivery_date=datetime.datetime.strptime(order_data['date'], '%d.%m.%Y %H:%M'),
+        delivery_date=delivery_date,
         delivery_address=order_data['adress'],
         contact_phone=order_data['phonenumber'],
-        contact_name=order_data['user_name']
+        contact_name=order_data['user_name'],
+        status='new',
     )
-
+    await message.answer(
+        text='Спасибо, за заказ 👍!\n\n'
+             f'Номер Вашего заказа <b>№{new_order.pk}</b>. Наш курьер свяжется с Вами в ближайшее время!\n\n'
+             '<b>Хотите что-то еще более уникальное? '
+             'Подберите другой букет из нашей коллекции или закажите консультацию флориста</b>',
+        reply_markup=await get_order_keybord(),
+        parse_mode='HTML'
+    )
+    await state.clear()
 
 @router.callback_query(F.data == 'all_bouquets')
 async def show_all_bouquets_handler(callback: CallbackQuery):
