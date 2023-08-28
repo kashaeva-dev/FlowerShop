@@ -14,6 +14,7 @@ from shopbot.models import (
     FlowerComposition,
     GreeneryComposition,
     Genus,
+    Consulting
 )
 
 
@@ -39,12 +40,21 @@ class FlowerAdmin(admin.ModelAdmin):
     list_filter = ('genus',)
 
 
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    list_display = [
+        'contact_name',
+        'bouquet',
+        'contact_phone'
+    ]
+
+
 admin.site.register(Advertisement)
 admin.site.register(Client)
 admin.site.register(Staff)
 admin.site.register(Colors)
 admin.site.register(Gamma)
-admin.site.register(Order)
 admin.site.register(Occasion)
 admin.site.register(Greenery)
 admin.site.register(Genus)
+admin.site.register(Consulting)
