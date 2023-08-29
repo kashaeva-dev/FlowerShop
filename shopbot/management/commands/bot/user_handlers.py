@@ -44,7 +44,10 @@ logging.basicConfig(
     format='%(filename)s:%(lineno)d - %(levelname)-8s - %(asctime)s - %(funcName)s - %(name)s - %(message)s'
 )
 
+file_handler = logging.FileHandler(f'{BASE_DIR}/botlog.txt', mode='w')
+
 logger = logging.getLogger(__name__)
+logger.addHandler(file_handler)
 
 env: Env = Env()
 env.read_env()
@@ -145,6 +148,7 @@ async def get_price_range_handler(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == 'catalog')
 async def show_start_catalog_handler(message: Message):
+    logger.info(f'start catalog handler')
     bouquet = await sync_to_async(Bouquet.objects.all().first)()
     image_path = os.path.join(BASE_DIR, bouquet.image.url.lstrip('/'))
     logger.info(f'picture path {image_path}')
